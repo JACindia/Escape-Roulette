@@ -1,0 +1,1238 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Escape Roulette</title>
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=cabinet-grotesk@700,800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0c1118;
+      --surface: rgba(17, 24, 39, 0.92);
+      --surface-2: rgba(30, 41, 59, 0.92);
+      --border: rgba(255,255,255,0.12);
+      --text: #e5eef9;
+      --muted: #90a2b8;
+      --p1: #38bdf8;
+      --p2: #fb7185;
+      --gold: #fbbf24;
+      --accent: #34d399;
+      --danger: #f87171;
+      --shadow: 0 20px 60px rgba(0,0,0,0.35);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      padding: 18px;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top, rgba(52, 211, 153, 0.10), transparent 28%),
+        radial-gradient(circle at bottom right, rgba(56, 189, 248, 0.12), transparent 25%),
+        linear-gradient(180deg, #0b1016, #101826 50%, #0b1016);
+      font-family: 'Satoshi', sans-serif;
+      overflow: hidden;
+    }
+
+    .panel {
+      width: 230px;
+      height: 640px;
+      padding: 18px;
+      border-radius: var(--radius);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .panel h2 {
+      margin: 0;
+      font-family: 'Cabinet Grotesk', sans-serif;
+      font-size: 28px;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      text-align: center;
+    }
+
+    .p1-panel { outline: 2px solid rgba(56,189,248,0.18); }
+    .p2-panel { outline: 2px solid rgba(251,113,133,0.18); }
+
+    .stats {
+      min-height: 148px;
+      border-radius: 14px;
+      padding: 14px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      border: 1px solid rgba(255,255,255,0.08);
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.6;
+      text-align: center;
+    }
+
+    .mini-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      text-align: center;
+      margin-bottom: 2px;
+    }
+
+    .keys { display: flex; flex-direction: column; gap: 8px; }
+    .key-row { display: flex; justify-content: center; gap: 6px; }
+    .key-btn {
+      min-width: 40px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, #1f2937, #111827);
+      border: 1px solid rgba(255,255,255,0.1);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+      text-align: center;
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .hint, .rule {
+      border-radius: 14px;
+      padding: 12px;
+      text-align: center;
+      line-height: 1.45;
+    }
+
+    .hint {
+      color: var(--muted);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      font-size: 14px;
+    }
+
+    .rule {
+      background: linear-gradient(180deg, rgba(251,191,36,0.14), rgba(251,191,36,0.07));
+      border: 1px solid rgba(251,191,36,0.25);
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    #game-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .topbar {
+      width: 800px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 16px;
+      border-radius: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(12px);
+      font-weight: 700;
+    }
+
+    #game-container {
+      width: 800px;
+      height: 600px;
+      overflow: hidden;
+      border-radius: 24px;
+      border: 1px solid rgba(255,255,255,0.12);
+      box-shadow: 0 24px 70px rgba(0,0,0,0.4), 0 0 0 4px rgba(255,255,255,0.02);
+      background: #081018;
+    }
+
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <aside class="panel p1-panel">
+    <h2 style="color: var(--p1);">Player 1</h2>
+    <div id="p1-stats" class="stats" style="color: var(--p1);">Coins: 0<br>Keys: 0/3<br>Luck: 30%</div>
+    <div class="mini-title">Move</div>
+    <div class="keys">
+      <div class="key-row"><div class="key-btn">W</div></div>
+      <div class="key-row"><div class="key-btn">A</div><div class="key-btn">S</div><div class="key-btn">D</div></div>
+    </div>
+    <div class="mini-title">Use / Shoot</div>
+    <div class="key-row"><div class="key-btn" style="color: var(--p1); border-color: rgba(56,189,248,0.4);">F</div></div>
+    <div class="hint">Grab coins, try the slots, collect power-ups, get 3 keys, reach the door.</div>
+    <div class="rule">When you collide, mash <span style="color: var(--p1);">F</span> to win the shove fight and steal everything.</div>
+  </aside>
+
+  <main id="game-wrapper">
+    <div class="topbar">
+      <div id="global-timer">2:00</div>
+      <div style="color: var(--gold);" id="global-keys">Keys: 0/3</div>
+      <div style="color: var(--accent);" id="global-powerups">Power-ups live</div>
+    </div>
+    <div id="game-container"></div>
+  </main>
+
+  <aside class="panel p2-panel">
+    <h2 style="color: var(--p2);">Player 2</h2>
+    <div id="p2-stats" class="stats" style="color: var(--p2);">Coins: 0<br>Keys: 0/3<br>Luck: 30%</div>
+    <div class="mini-title">Move</div>
+    <div class="keys">
+      <div class="key-row"><div class="key-btn">↑</div></div>
+      <div class="key-row"><div class="key-btn">←</div><div class="key-btn">↓</div><div class="key-btn">→</div></div>
+    </div>
+    <div class="mini-title">Use / Shoot</div>
+    <div class="key-row"><div class="key-btn" style="color: var(--p2); border-color: rgba(251,113,133,0.4);">L</div></div>
+    <div class="hint">Boots = speed, Shield = safe, Magnet = auto coins, x2 = double coin pickups.</div>
+    <div class="rule">When you collide, mash <span style="color: var(--p2);">L</span> to win the shove fight and steal everything.</div>
+  </aside>
+
+  <script>
+    const CONFIG = {
+      width: 800,
+      height: 600,
+      tile: 40,
+      playerSpeed: 210,
+      speedBoost: 95,
+      bulletSpeed: 420,
+      bulletRange: 360,
+      gunDuration: 15000,
+      respawnTime: 3500,
+      invincibilityTime: 2200,
+      doorOpenTime: 2500,
+      gameDuration: 120000,
+      slotCost: 5,
+      mashTarget: 18,
+      keyGoal: 3,
+      powerUpDuration: 8000,
+      powerUpSpawnInterval: 9000,
+      maxPowerUps: 3,
+      magnetRange: 120
+    };
+
+    let globalState = {
+      probNothing: 70,
+      probGun: 20,
+      probKey: 10,
+      totalKeysFound: 0
+    };
+
+    function spinSlotMachine() {
+      const roll = Phaser.Math.Between(1, 100);
+      let result = 'nothing';
+      if (roll <= globalState.probKey) result = 'key';
+      else if (roll <= globalState.probKey + globalState.probGun) result = 'gun';
+      globalState.probGun = Math.min(38, globalState.probGun + 2);
+      globalState.probKey = Math.min(30, globalState.probKey + 2);
+      globalState.probNothing = Math.max(32, 100 - globalState.probGun - globalState.probKey);
+      return result;
+    }
+
+    class BootScene extends Phaser.Scene {
+      constructor() { super('BootScene'); }
+      create() { this.scene.start('MenuScene'); }
+    }
+
+    class MenuScene extends Phaser.Scene {
+      constructor() { super('MenuScene'); }
+      create() {
+        this.cameras.main.setBackgroundColor('#0e1620');
+
+        this.add.text(400, 110, 'Escape Roulette', {
+          fontFamily: 'Cabinet Grotesk', fontSize: '52px', color: '#e5eef9'
+        }).setOrigin(0.5);
+
+        this.add.text(400, 165, 'Coins → Slots → Guns / Keys / Power-ups → Door', {
+          fontFamily: 'Satoshi', fontSize: '20px', color: '#90a2b8'
+        }).setOrigin(0.5);
+
+        const options = [
+          { label: '1 Minute', value: 60000, color: '#34d399' },
+          { label: '2 Minutes', value: 120000, color: '#fbbf24' },
+          { label: '5 Minutes', value: 300000, color: '#f87171' },
+          { label: 'Infinite', value: Infinity, color: '#c084fc' }
+        ];
+
+        let y = 255;
+        options.forEach(opt => {
+          const btn = this.add.text(400, y, opt.label, {
+            fontFamily: 'Satoshi',
+            fontSize: '26px',
+            color: opt.color,
+            backgroundColor: '#182230',
+            padding: { x: 18, y: 10 }
+          }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+          btn.on('pointerdown', () => this.scene.start('GameScene', { gameDuration: opt.value }));
+          y += 64;
+        });
+
+        this.add.text(400, 540, 'Simple controls. Fast rounds. Fair routes. Random power spikes.', {
+          fontFamily: 'Satoshi', fontSize: '18px', color: '#c7d2de'
+        }).setOrigin(0.5);
+      }
+    }
+
+    class GameScene extends Phaser.Scene {
+      constructor() { super('GameScene'); }
+
+      preload() {}
+
+      create(data) {
+        globalState = { probNothing: 70, probGun: 20, probKey: 10, totalKeysFound: 0 };
+        this.timeLeft = data.gameDuration ?? CONFIG.gameDuration;
+        this.inMiniGame = false;
+
+        this.createGeneratedTextures();
+
+        this.physics.world.setBounds(0, 0, CONFIG.width, CONFIG.height);
+        this.cameras.main.setBackgroundColor('#13202c');
+
+        this.drawFloor();
+        this.walls = this.physics.add.staticGroup();
+        this.createMap();
+        this.createDecor();
+
+        this.p1 = this.createPlayer(60, 540, 0x38bdf8, 1);
+        this.p2 = this.createPlayer(740, 540, 0xfb7185, 2);
+
+        this.physics.add.collider(this.p1, this.walls);
+        this.physics.add.collider(this.p2, this.walls);
+        this.physics.add.collider(this.p1, this.p2, () => this.startMashMiniGame());
+
+        this.keysP1 = this.input.keyboard.addKeys({ up: 'W', down: 'S', left: 'A', right: 'D', shoot: 'F' });
+        this.keysP2 = this.input.keyboard.addKeys({ up: 'UP', down: 'DOWN', left: 'LEFT', right: 'RIGHT', shoot: 'L' });
+
+        window.addEventListener('blur', () => {
+          if (this.input.keyboard) this.input.keyboard.resetKeys();
+        });
+
+        this.coins = this.physics.add.group();
+        this.spawnCoins(28);
+        this.physics.add.overlap(this.p1, this.coins, (p, c) => this.collectCoin(p, c), null, this);
+        this.physics.add.overlap(this.p2, this.coins, (p, c) => this.collectCoin(p, c), null, this);
+
+        this.slots = this.physics.add.staticGroup();
+        this.createSlot(180, 180);
+        this.createSlot(620, 180);
+        this.createSlot(400, 340);
+        this.physics.add.collider(this.p1, this.slots);
+        this.physics.add.collider(this.p2, this.slots);
+
+        this.powerUps = this.physics.add.group();
+        this.physics.add.overlap(this.p1, this.powerUps, (p, item) => this.collectPowerUp(p, item), null, this);
+        this.physics.add.overlap(this.p2, this.powerUps, (p, item) => this.collectPowerUp(p, item), null, this);
+        this.powerUpTimer = this.time.addEvent({
+          delay: CONFIG.powerUpSpawnInterval,
+          callback: () => this.spawnRandomPowerUp(),
+          loop: true
+        });
+        this.spawnRandomPowerUp();
+
+        this.doorZone = { x: 400, y: 60 };
+        this.door = this.physics.add.staticImage(400, 60, 'door-closed');
+        this.door.setDepth(5);
+        this.door.refreshBody();
+
+        this.bullets = this.physics.add.group();
+
+        this.physics.add.collider(this.bullets, this.walls, bullet => {
+          if (!bullet.active) return;
+          this.makeImpact(bullet.x, bullet.y, 0xffffff);
+          if (bullet.trail) {
+            bullet.trail.stop();
+            this.time.delayedCall(220, () => bullet.trail.destroy());
+          }
+          bullet.destroy();
+        });
+
+        this.physics.add.overlap(this.p1, this.bullets, (player, bullet) => this.hitPlayer(player, bullet));
+        this.physics.add.overlap(this.p2, this.bullets, (player, bullet) => this.hitPlayer(player, bullet));
+
+        this.updateUI();
+      }
+
+      createGeneratedTextures() {
+        if (!this.textures.exists('bullet-particle')) {
+          const g = this.add.graphics();
+          g.fillStyle(0xffffff, 1);
+          g.fillCircle(4, 4, 4);
+          g.generateTexture('bullet-particle', 8, 8);
+          g.destroy();
+        }
+
+        if (!this.textures.exists('coin')) {
+          const g = this.add.graphics();
+          g.fillStyle(0xfbbf24, 1);
+          g.fillCircle(8, 8, 6);
+          g.lineStyle(2, 0xfff2a8, 0.9);
+          g.strokeCircle(8, 8, 6);
+          g.generateTexture('coin', 16, 16);
+          g.destroy();
+        }
+
+        if (!this.textures.exists('door-closed')) {
+          const g = this.add.graphics();
+          g.fillStyle(0x14532d, 1);
+          g.fillRoundedRect(0, 0, 56, 72, 8);
+          g.fillStyle(0x22c55e, 0.35);
+          g.fillRoundedRect(6, 6, 44, 60, 6);
+          g.lineStyle(3, 0xa7f3d0, 0.9);
+          g.strokeRoundedRect(0, 0, 56, 72, 8);
+          g.fillStyle(0xfde68a, 1);
+          g.fillCircle(43, 36, 3);
+          g.generateTexture('door-closed', 56, 72);
+          g.destroy();
+        }
+
+        if (!this.textures.exists('door-open')) {
+          const g = this.add.graphics();
+          g.fillStyle(0x065f46, 0.65);
+          g.fillRoundedRect(0, 0, 56, 72, 8);
+          g.lineStyle(3, 0x34d399, 1);
+          g.strokeRoundedRect(0, 0, 56, 72, 8);
+          g.fillStyle(0xffffff, 0.35);
+          g.fillRoundedRect(8, 8, 40, 56, 5);
+          g.generateTexture('door-open', 56, 72);
+          g.destroy();
+        }
+
+        if (!this.textures.exists('slot-idle')) {
+          const g = this.add.graphics();
+          g.fillStyle(0x581c87, 1);
+          g.fillRoundedRect(0, 0, 54, 60, 10);
+          g.fillStyle(0x1f2937, 1);
+          g.fillRoundedRect(8, 8, 38, 18, 6);
+          g.fillStyle(0xfbbf24, 1);
+          g.fillCircle(46, 20, 5);
+          g.lineStyle(2, 0xf9a8d4, 0.85);
+          g.strokeRoundedRect(0, 0, 54, 60, 10);
+          g.fillStyle(0xffffff, 0.85);
+          g.fillRect(14, 13, 4, 8);
+          g.fillRect(25, 13, 4, 8);
+          g.fillRect(36, 13, 4, 8);
+          g.generateTexture('slot-idle', 54, 60);
+          g.destroy();
+        }
+
+        if (!this.textures.exists('slot-spin')) {
+          const g = this.add.graphics();
+          g.fillStyle(0x6d28d9, 1);
+          g.fillRoundedRect(0, 0, 54, 60, 10);
+          g.fillStyle(0x111827, 1);
+          g.fillRoundedRect(8, 8, 38, 18, 6);
+          g.fillStyle(0x34d399, 1);
+          g.fillRect(13, 12, 6, 10);
+          g.fillStyle(0xfbbf24, 1);
+          g.fillRect(24, 12, 6, 10);
+          g.fillStyle(0xfb7185, 1);
+          g.fillRect(35, 12, 6, 10);
+          g.fillStyle(0xfbbf24, 1);
+          g.fillCircle(46, 20, 5);
+          g.lineStyle(2, 0xffffff, 0.95);
+          g.strokeRoundedRect(0, 0, 54, 60, 10);
+          g.generateTexture('slot-spin', 54, 60);
+          g.destroy();
+        }
+
+        if (!this.textures.exists('power-speed')) this.makePowerTexture('power-speed', 0x38bdf8, '>>');
+        if (!this.textures.exists('power-shield')) this.makePowerTexture('power-shield', 0x34d399, 'O');
+        if (!this.textures.exists('power-magnet')) this.makePowerTexture('power-magnet', 0xf97316, 'U');
+        if (!this.textures.exists('power-double')) this.makePowerTexture('power-double', 0xfbbf24, 'x2');
+
+        if (!this.textures.exists('player1-up')) this.makePlayerTexture('player1-up', 0x38bdf8, 'up');
+        if (!this.textures.exists('player1-down')) this.makePlayerTexture('player1-down', 0x38bdf8, 'down');
+        if (!this.textures.exists('player1-left')) this.makePlayerTexture('player1-left', 0x38bdf8, 'left');
+        if (!this.textures.exists('player1-right')) this.makePlayerTexture('player1-right', 0x38bdf8, 'right');
+
+        if (!this.textures.exists('player2-up')) this.makePlayerTexture('player2-up', 0xfb7185, 'up');
+        if (!this.textures.exists('player2-down')) this.makePlayerTexture('player2-down', 0xfb7185, 'down');
+        if (!this.textures.exists('player2-left')) this.makePlayerTexture('player2-left', 0xfb7185, 'left');
+        if (!this.textures.exists('player2-right')) this.makePlayerTexture('player2-right', 0xfb7185, 'right');
+      }
+
+      makePowerTexture(key, color, label) {
+        const g = this.add.graphics();
+        g.fillStyle(color, 1);
+        g.fillCircle(18, 18, 16);
+        g.lineStyle(3, 0xffffff, 0.28);
+        g.strokeCircle(18, 18, 16);
+        g.generateTexture(key + '-base', 36, 36);
+        g.destroy();
+
+        const rt = this.add.renderTexture(0, 0, 36, 36).setVisible(false);
+        rt.draw(key + '-base', 18, 18);
+        const txt = this.add.text(18, 18, label, {
+          fontFamily: 'Cabinet Grotesk',
+          fontSize: label === 'x2' ? '15px' : '17px',
+          color: '#ffffff',
+          fontStyle: 'bold'
+        }).setOrigin(0.5).setVisible(false);
+        rt.draw(txt, 18, 18);
+        rt.saveTexture(key);
+        rt.destroy();
+        txt.destroy();
+        this.textures.remove(key + '-base');
+      }
+
+      makePlayerTexture(key, color, dir) {
+        const g = this.add.graphics();
+        g.clear();
+
+        g.fillStyle(color, 1);
+        g.fillRoundedRect(10, 8, 28, 32, 10);
+
+        g.fillStyle(0xe5eef9, 1);
+        g.fillCircle(18, 18, 3);
+        g.fillCircle(30, 18, 3);
+
+        g.fillStyle(0x0f172a, 0.95);
+        if (dir === 'up') g.fillTriangle(24, 2, 16, 12, 32, 12);
+        if (dir === 'down') g.fillTriangle(24, 46, 16, 36, 32, 36);
+        if (dir === 'left') g.fillTriangle(2, 24, 12, 16, 12, 32);
+        if (dir === 'right') g.fillTriangle(46, 24, 36, 16, 36, 32);
+
+        g.lineStyle(2, 0xffffff, 0.35);
+        g.strokeRoundedRect(10, 8, 28, 32, 10);
+
+        g.generateTexture(key, 48, 48);
+        g.destroy();
+      }
+
+      drawFloor() {
+        const g = this.add.graphics();
+        g.fillGradientStyle(0x122130, 0x122130, 0x172a3c, 0x172a3c, 1);
+        g.fillRect(0, 0, CONFIG.width, CONFIG.height);
+        g.lineStyle(1, 0xffffff, 0.04);
+        for (let x = 0; x <= CONFIG.width; x += CONFIG.tile) {
+          g.moveTo(x, 0);
+          g.lineTo(x, CONFIG.height);
+        }
+        for (let y = 0; y <= CONFIG.height; y += CONFIG.tile) {
+          g.moveTo(0, y);
+          g.lineTo(CONFIG.width, y);
+        }
+        g.strokePath();
+      }
+
+      createMap() {
+        this.mapLayout = [
+          '11111111100111111111',
+          '10000000100010000001',
+          '10111010101010101101',
+          '10001000000000001001',
+          '10101110111101110101',
+          '10000010000010000001',
+          '11101010111110101011',
+          '00000010000010000000',
+          '11101010111110101011',
+          '10000010000010000001',
+          '10101110111101110101',
+          '10001000000000001001',
+          '10111010101010101101',
+          '10000000100010000001',
+          '11111111111111111111'
+        ];
+
+        for (let row = 0; row < this.mapLayout.length; row++) {
+          for (let col = 0; col < this.mapLayout[row].length; col++) {
+            if (this.mapLayout[row][col] === '1') {
+              const wall = this.add.rectangle(col * 40 + 20, row * 40 + 20, 40, 40, 0x334155);
+              wall.setStrokeStyle(2, 0x0f172a, 0.75);
+              this.walls.add(wall);
+            }
+          }
+        }
+      }
+
+      createDecor() {
+        const deco = this.add.graphics();
+        deco.fillStyle(0xffffff, 0.05);
+        deco.fillRoundedRect(142, 142, 76, 76, 14);
+        deco.fillRoundedRect(582, 142, 76, 76, 14);
+        deco.fillRoundedRect(362, 302, 76, 76, 14);
+        deco.lineStyle(2, 0xfbbf24, 0.16);
+        deco.strokeRoundedRect(360, 20, 80, 80, 18);
+      }
+
+      createPlayer(x, y, color, id) {
+        const textureKey = id === 1 ? 'player1-up' : 'player2-up';
+        const player = this.physics.add.sprite(x, y, textureKey);
+        player.setCollideWorldBounds(true);
+        player.setDepth(10);
+        player.body.setSize(24, 28);
+
+        player.stateData = {
+          id,
+          spawnX: x,
+          spawnY: y,
+          coins: 0,
+          keys: 0,
+          hasGun: false,
+          gunTimer: 0,
+          dead: false,
+          deadTimer: 0,
+          invincible: false,
+          invincibleTimer: 0,
+          facing: new Phaser.Math.Vector2(0, -1),
+          openingDoor: false,
+          doorTimer: 0,
+          color,
+          facingName: 'up',
+          speedBoostTimer: 0,
+          shieldTimer: 0,
+          magnetTimer: 0,
+          doubleCoinsTimer: 0
+        };
+
+        const ring = this.add.circle(x, y, 21, color, 0.08).setStrokeStyle(2, color, 0.22);
+        ring.setDepth(8);
+        player.ring = ring;
+        return player;
+      }
+
+      createSlot(x, y) {
+        const slot = this.physics.add.staticImage(x, y, 'slot-idle');
+        slot.isSlot = true;
+        slot.isSpinning = false;
+        slot.setDepth(6);
+        slot.refreshBody();
+        this.slots.add(slot);
+      }
+
+      getValidSpawnTiles() {
+        const validTiles = [];
+        for (let r = 0; r < this.mapLayout.length; r++) {
+          for (let c = 0; c < this.mapLayout[r].length; c++) {
+            if (this.mapLayout[r][c] !== '0') continue;
+
+            const x = c * 40 + 20;
+            const y = r * 40 + 20;
+
+            const blockedBySpecial = [
+              { x: 180, y: 180 }, { x: 620, y: 180 }, { x: 400, y: 340 }, { x: 400, y: 60 }
+            ].some(p => Phaser.Math.Distance.Between(x, y, p.x, p.y) < 48);
+
+            if (blockedBySpecial) continue;
+            validTiles.push({ x, y });
+          }
+        }
+        return Phaser.Utils.Array.Shuffle(validTiles);
+      }
+
+      spawnCoins(num) {
+        const validTiles = this.getValidSpawnTiles();
+
+        validTiles.slice(0, Math.min(num, validTiles.length)).forEach(tile => {
+          let occupied = false;
+          this.coins.children.each(coin => {
+            if (coin.active && Math.abs(coin.x - tile.x) < 4 && Math.abs(coin.y - tile.y) < 4) occupied = true;
+          });
+          if (occupied) return;
+
+          const coin = this.physics.add.image(tile.x, tile.y, 'coin');
+          coin.body.setAllowGravity(false);
+          coin.setImmovable(true);
+          coin.setDepth(4);
+          this.coins.add(coin);
+          this.tweens.add({ targets: coin, y: coin.y - 5, alpha: 0.7, yoyo: true, repeat: -1, duration: 600 });
+        });
+      }
+
+      spawnRandomPowerUp() {
+        if (this.powerUps.countActive(true) >= CONFIG.maxPowerUps) return;
+        const validTiles = this.getValidSpawnTiles();
+        const types = [
+          { type: 'speed', texture: 'power-speed', color: '#38bdf8' },
+          { type: 'shield', texture: 'power-shield', color: '#34d399' },
+          { type: 'magnet', texture: 'power-magnet', color: '#f97316' },
+          { type: 'double', texture: 'power-double', color: '#fbbf24' }
+        ];
+
+        for (const tile of validTiles) {
+          const nearBusy = [this.p1, this.p2].some(p => Phaser.Math.Distance.Between(tile.x, tile.y, p.x, p.y) < 80);
+          if (nearBusy) continue;
+
+          let occupied = false;
+          this.powerUps.children.each(item => {
+            if (item.active && Phaser.Math.Distance.Between(tile.x, tile.y, item.x, item.y) < 24) occupied = true;
+          });
+          if (occupied) continue;
+
+          const choice = Phaser.Utils.Array.GetRandom(types);
+          const item = this.physics.add.image(tile.x, tile.y, choice.texture);
+          item.body.setAllowGravity(false);
+          item.setImmovable(true);
+          item.setDepth(7);
+          item.powerType = choice.type;
+          item.glowColor = choice.color;
+          this.powerUps.add(item);
+
+          item.glow = this.add.circle(tile.x, tile.y, 22, Phaser.Display.Color.HexStringToColor(choice.color).color, 0.12)
+            .setDepth(6);
+
+          this.tweens.add({ targets: [item, item.glow], y: '-=6', yoyo: true, repeat: -1, duration: 700 });
+          this.time.delayedCall(12000, () => {
+            if (item.active) {
+              item.glow?.destroy();
+              item.destroy();
+            }
+          });
+          return;
+        }
+      }
+
+      collectCoin(player, coin) {
+        if (player.stateData.dead) return;
+        const x = coin.x, y = coin.y;
+        coin.destroy();
+        player.stateData.coins += player.stateData.doubleCoinsTimer > 0 ? 2 : 1;
+
+        const burst = this.add.particles(x, y, 'bullet-particle', {
+          speed: { min: 18, max: 80 },
+          scale: { start: 0.8, end: 0 },
+          lifespan: 300,
+          quantity: 6,
+          tint: [0xfbbf24, 0xfff7c2],
+          emitting: false
+        });
+        burst.explode(8, x, y);
+        this.time.delayedCall(350, () => burst.destroy());
+      }
+
+      collectPowerUp(player, item) {
+        if (!item.active || player.stateData.dead) return;
+        const d = player.stateData;
+        const x = item.x, y = item.y;
+        const labels = {
+          speed: 'SPEED',
+          shield: 'SHIELD',
+          magnet: 'MAGNET',
+          double: 'x2 COINS'
+        };
+
+        if (item.powerType === 'speed') d.speedBoostTimer = CONFIG.powerUpDuration;
+        if (item.powerType === 'shield') {
+          d.shieldTimer = CONFIG.powerUpDuration;
+          d.invincible = true;
+          d.invincibleTimer = Math.max(d.invincibleTimer, CONFIG.powerUpDuration);
+        }
+        if (item.powerType === 'magnet') d.magnetTimer = CONFIG.powerUpDuration;
+        if (item.powerType === 'double') d.doubleCoinsTimer = CONFIG.powerUpDuration;
+
+        item.glow?.destroy();
+        item.destroy();
+
+        const pop = this.add.text(x, y - 18, labels[item.powerType], {
+          fontFamily: 'Cabinet Grotesk',
+          fontSize: '18px',
+          color: '#ffffff'
+        }).setOrigin(0.5).setDepth(20);
+
+        this.tweens.add({
+          targets: pop,
+          y: y - 48,
+          alpha: 0,
+          duration: 900,
+          onComplete: () => pop.destroy()
+        });
+
+        const burst = this.add.particles(x, y, 'bullet-particle', {
+          speed: { min: 30, max: 110 },
+          scale: { start: 0.9, end: 0 },
+          lifespan: 350,
+          quantity: 10,
+          tint: [0xffffff, d.color],
+          emitting: false
+        });
+        burst.explode(12, x, y);
+        this.time.delayedCall(400, () => burst.destroy());
+      }
+
+      startMashMiniGame() {
+        if (this.inMiniGame || this.p1.stateData.dead || this.p2.stateData.dead) return;
+        this.inMiniGame = true;
+        this.p1.body.setVelocity(0, 0);
+        this.p2.body.setVelocity(0, 0);
+
+        this.mashBalance = 0;
+        this.mashBg = this.add.rectangle(400, 300, 430, 210, 0x020617, 0.88).setDepth(1000).setStrokeStyle(2, 0xffffff, 0.15);
+        this.mashText = this.add.text(400, 238, 'MASH F  vs  L', {
+          fontFamily: 'Cabinet Grotesk', fontSize: '34px', color: '#ffffff'
+        }).setOrigin(0.5).setDepth(1001);
+        this.mashHint = this.add.text(400, 270, 'Fill the bar to shove the other player out', {
+          fontFamily: 'Satoshi', fontSize: '16px', color: '#cbd5e1'
+        }).setOrigin(0.5).setDepth(1001);
+        this.mashBarBg = this.add.rectangle(400, 330, 260, 34, 0x111827).setDepth(1000).setStrokeStyle(2, 0xffffff, 0.25);
+        this.p2BarObj = this.add.rectangle(270, 330, 260, 28, 0xfb7185).setOrigin(0, 0.5).setDepth(1001);
+        this.p1BarObj = this.add.rectangle(270, 330, 130, 28, 0x38bdf8).setOrigin(0, 0.5).setDepth(1002);
+
+        this.input.keyboard.on('keydown-F', this.onMashF, this);
+        this.input.keyboard.on('keydown-L', this.onMashL, this);
+      }
+
+      onMashF() {
+        if (!this.inMiniGame) return;
+        this.mashBalance++;
+        this.updateMashBars();
+        if (this.mashBalance >= CONFIG.mashTarget) this.endMashMiniGame(1);
+      }
+
+      onMashL() {
+        if (!this.inMiniGame) return;
+        this.mashBalance--;
+        this.updateMashBars();
+        if (this.mashBalance <= -CONFIG.mashTarget) this.endMashMiniGame(2);
+      }
+
+      updateMashBars() {
+        const ratio = Phaser.Math.Clamp((this.mashBalance + CONFIG.mashTarget) / (CONFIG.mashTarget * 2), 0, 1);
+        this.p1BarObj.width = Math.max(12, ratio * 260);
+      }
+
+      endMashMiniGame(winnerId) {
+        this.inMiniGame = false;
+        this.input.keyboard.off('keydown-F', this.onMashF, this);
+        this.input.keyboard.off('keydown-L', this.onMashL, this);
+        [this.mashBg, this.mashText, this.mashHint, this.mashBarBg, this.p1BarObj, this.p2BarObj].forEach(o => o?.destroy());
+
+        if (winnerId === 1) {
+          this.transferLoot(this.p2, this.p1);
+          this.killPlayer(this.p2);
+        } else {
+          this.transferLoot(this.p1, this.p2);
+          this.killPlayer(this.p1);
+        }
+
+        this.cameras.main.shake(180, 0.012);
+      }
+
+      transferLoot(fromPlayer, toPlayer) {
+        toPlayer.stateData.coins += fromPlayer.stateData.coins;
+        toPlayer.stateData.keys += fromPlayer.stateData.keys;
+        fromPlayer.stateData.coins = 0;
+        fromPlayer.stateData.keys = 0;
+      }
+
+      hitPlayer(player, bullet) {
+        if (!bullet.active || !player.active) return;
+
+        const victim = player.stateData;
+        const attacker = bullet.owner.stateData;
+        if (victim.dead || victim.invincible || attacker.id === victim.id) return;
+
+        this.transferLoot(player, bullet.owner);
+        this.makeImpact(bullet.x, bullet.y, attacker.color);
+
+        if (bullet.trail) {
+          bullet.trail.stop();
+          this.time.delayedCall(220, () => bullet.trail.destroy());
+        }
+        bullet.destroy();
+
+        this.killPlayer(player);
+        this.cameras.main.shake(120, 0.01);
+      }
+
+      killPlayer(player) {
+        const d = player.stateData;
+        d.dead = true;
+        d.deadTimer = CONFIG.respawnTime;
+        d.hasGun = false;
+        d.openingDoor = false;
+        d.speedBoostTimer = 0;
+        d.shieldTimer = 0;
+        d.magnetTimer = 0;
+        d.doubleCoinsTimer = 0;
+        player.setVisible(false);
+        player.ring.setVisible(false);
+        player.body.stop();
+        player.body.enable = false;
+      }
+
+      respawnPlayer(player) {
+        const d = player.stateData;
+        d.dead = false;
+        d.invincible = true;
+        d.invincibleTimer = CONFIG.invincibilityTime;
+        player.setPosition(d.spawnX, d.spawnY);
+        player.setVisible(true);
+        player.ring.setVisible(true);
+        player.body.enable = true;
+        player.alpha = 1;
+
+        this.tweens.add({
+          targets: player,
+          alpha: 0.25,
+          yoyo: true,
+          repeat: 7,
+          duration: 120,
+          onComplete: () => player.alpha = 1
+        });
+      }
+
+      interactSlot(player, slot) {
+        const data = player.stateData;
+        if (data.coins < CONFIG.slotCost || slot.isSpinning) return;
+
+        data.coins -= CONFIG.slotCost;
+        slot.isSpinning = true;
+        slot.setTexture('slot-spin');
+        slot.refreshBody();
+        this.spawnCoins(CONFIG.slotCost);
+
+        const spinText = this.add.text(slot.x, slot.y - 42, '???', {
+          fontFamily: 'Cabinet Grotesk', fontSize: '18px', color: '#fbbf24'
+        }).setOrigin(0.5).setDepth(20);
+
+        const chars = ['$', '?', '7', '!', '*', '&'];
+
+        const timer = this.time.addEvent({
+          delay: 100,
+          repeat: 13,
+          callback: () => {
+            spinText.setText(chars[Phaser.Math.Between(0, 5)] + chars[Phaser.Math.Between(0, 5)] + chars[Phaser.Math.Between(0, 5)]);
+            slot.setScale(slot.scaleX === 1 ? 1.04 : 1);
+            slot.refreshBody();
+          }
+        });
+
+        this.time.delayedCall(1500, () => {
+          timer.remove(false);
+          slot.setScale(1);
+          slot.setTexture('slot-idle');
+          slot.refreshBody();
+
+          let result = spinSlotMachine();
+
+          if (result === 'gun') {
+            data.hasGun = true;
+            data.gunTimer = CONFIG.gunDuration;
+          } else if (result === 'key') {
+            if (globalState.totalKeysFound < CONFIG.keyGoal) {
+              data.keys += 1;
+              globalState.totalKeysFound += 1;
+            } else {
+              result = 'nothing';
+            }
+          }
+
+          const colors = { nothing: '#f87171', gun: '#34d399', key: '#fbbf24' };
+          const labels = { nothing: 'MISS', gun: 'GUN', key: 'KEY' };
+
+          spinText.setText(labels[result]).setColor(colors[result]);
+          this.tweens.add({
+            targets: spinText,
+            y: spinText.y - 25,
+            alpha: 0,
+            duration: 900,
+            onComplete: () => {
+              spinText.destroy();
+              slot.isSpinning = false;
+            }
+          });
+        });
+      }
+
+      interactDoor(player) {
+        const data = player.stateData;
+        if (data.keys === CONFIG.keyGoal) {
+          data.openingDoor = true;
+          data.doorTimer = CONFIG.doorOpenTime;
+          this.door.setTexture('door-open');
+          this.door.refreshBody();
+        }
+      }
+
+      shootGun(player) {
+        const data = player.stateData;
+
+        const bullet = this.add.circle(
+          player.x + data.facing.x * 18,
+          player.y + data.facing.y * 18,
+          5,
+          0x00ffff
+        );
+        this.physics.add.existing(bullet);
+        this.bullets.add(bullet);
+
+        bullet.owner = player;
+        bullet.spawnTime = this.time.now;
+        bullet.body.setAllowGravity(false);
+        bullet.body.setVelocity(
+          data.facing.x * CONFIG.bulletSpeed,
+          data.facing.y * CONFIG.bulletSpeed
+        );
+
+        const emitter = this.add.particles(0, 0, 'bullet-particle', {
+          speed: 30,
+          scale: { start: 0.6, end: 0 },
+          blendMode: 'ADD',
+          lifespan: 250,
+          tint: data.color
+        });
+        emitter.startFollow(bullet);
+        bullet.trail = emitter;
+
+        bullet.on('destroy', () => {
+          emitter.stop();
+          this.time.delayedCall(300, () => emitter.destroy());
+        });
+
+        const flash = this.add.circle(
+          player.x + data.facing.x * 14,
+          player.y + data.facing.y * 14,
+          10,
+          0xffffff,
+          0.75
+        );
+        this.tweens.add({
+          targets: flash,
+          alpha: 0,
+          scale: 2,
+          duration: 100,
+          onComplete: () => flash.destroy()
+        });
+      }
+
+      makeImpact(x, y, color) {
+        const burst = this.add.particles(x, y, 'bullet-particle', {
+          speed: { min: 40, max: 120 },
+          scale: { start: 0.8, end: 0 },
+          lifespan: 220,
+          quantity: 8,
+          tint: [color, 0xffffff],
+          emitting: false
+        });
+        burst.explode(10, x, y);
+        this.time.delayedCall(260, () => burst.destroy());
+      }
+
+      applyMagnet(player, delta) {
+        const d = player.stateData;
+        if (d.magnetTimer <= 0) return;
+        const strength = 0.02 * delta;
+        this.coins.children.each(coin => {
+          if (!coin.active) return;
+          const dist = Phaser.Math.Distance.Between(player.x, player.y, coin.x, coin.y);
+          if (dist > CONFIG.magnetRange || dist < 8) return;
+          coin.x += (player.x - coin.x) * strength;
+          coin.y += (player.y - coin.y) * strength;
+          if (coin.body) coin.body.reset(coin.x, coin.y);
+        });
+      }
+
+      getEffectsLabel(data) {
+        const effects = [];
+        if (data.speedBoostTimer > 0) effects.push('Speed');
+        if (data.shieldTimer > 0) effects.push('Shield');
+        if (data.magnetTimer > 0) effects.push('Magnet');
+        if (data.doubleCoinsTimer > 0) effects.push('x2');
+        return effects.length ? effects.join(', ') : 'None';
+      }
+
+      updatePlayer(player, keys, delta) {
+        const data = player.stateData;
+        player.ring.setPosition(player.x, player.y);
+
+        if (data.dead) {
+          data.deadTimer -= delta;
+          if (data.deadTimer <= 0) this.respawnPlayer(player);
+          return;
+        }
+
+        if (data.invincible) {
+          data.invincibleTimer -= delta;
+          if (data.invincibleTimer <= 0) data.invincible = false;
+        }
+
+        if (data.hasGun) {
+          data.gunTimer -= delta;
+          if (data.gunTimer <= 0) data.hasGun = false;
+        }
+
+        data.speedBoostTimer = Math.max(0, data.speedBoostTimer - delta);
+        data.shieldTimer = Math.max(0, data.shieldTimer - delta);
+        data.magnetTimer = Math.max(0, data.magnetTimer - delta);
+        data.doubleCoinsTimer = Math.max(0, data.doubleCoinsTimer - delta);
+
+        if (data.openingDoor) {
+          data.doorTimer -= delta;
+          player.body.setVelocity(0, 0);
+          if (data.doorTimer <= 0) this.endGame('door', data.id);
+          return;
+        }
+
+        let vx = 0, vy = 0;
+        if (keys.left.isDown) vx = -1;
+        else if (keys.right.isDown) vx = 1;
+        if (keys.up.isDown) vy = -1;
+        else if (keys.down.isDown) vy = 1;
+
+        const moving = vx !== 0 || vy !== 0;
+
+        if (moving) {
+          data.facing.set(vx, vy).normalize();
+
+          if (Math.abs(vx) > Math.abs(vy)) {
+            data.facingName = vx > 0 ? 'right' : 'left';
+          } else {
+            data.facingName = vy > 0 ? 'down' : 'up';
+          }
+
+          const texturePrefix = data.id === 1 ? 'player1-' : 'player2-';
+          player.setTexture(texturePrefix + data.facingName);
+        }
+
+        if (moving && vx !== 0 && vy !== 0) {
+          const scale = Math.SQRT1_2;
+          vx *= scale;
+          vy *= scale;
+        }
+
+        const moveSpeed = CONFIG.playerSpeed + (data.speedBoostTimer > 0 ? CONFIG.speedBoost : 0);
+        player.body.setVelocity(vx * moveSpeed, vy * moveSpeed);
+        player.ring.setRadius(data.shieldTimer > 0 ? 24 : 21);
+        player.ring.setStrokeStyle(2, data.shieldTimer > 0 ? 0x34d399 : data.color, data.shieldTimer > 0 ? 0.4 : 0.22);
+
+        this.applyMagnet(player, delta);
+
+        if (Phaser.Input.Keyboard.JustDown(keys.shoot)) {
+          let interacted = false;
+
+          this.slots.children.each(slot => {
+            if (!interacted && Phaser.Math.Distance.Between(player.x, player.y, slot.x, slot.y) < 55) {
+              this.interactSlot(player, slot);
+              interacted = true;
+            }
+          });
+
+          if (!interacted && Phaser.Math.Distance.Between(player.x, player.y, this.doorZone.x, this.doorZone.y) < 65) {
+            this.interactDoor(player);
+            interacted = true;
+          }
+
+          if (!interacted && data.hasGun) this.shootGun(player);
+        }
+      }
+
+      updateUI() {
+        const p1 = this.p1.stateData;
+        const p2 = this.p2.stateData;
+        const currentLuck = Math.round(globalState.probGun + globalState.probKey);
+
+        document.getElementById('p1-stats').innerHTML =
+          `Coins: ${p1.coins}<br>Keys: ${p1.keys}/${CONFIG.keyGoal}<br>Luck: ${currentLuck}%<br>FX: ${this.getEffectsLabel(p1)}` +
+          (p1.hasGun ? `<br>Gun: ${Math.ceil(p1.gunTimer / 1000)}s` : '') +
+          (p1.dead ? `<br>Respawn: ${Math.ceil(p1.deadTimer / 1000)}s` : '') +
+          (p1.openingDoor ? `<br>Opening...` : '');
+
+        document.getElementById('p2-stats').innerHTML =
+          `Coins: ${p2.coins}<br>Keys: ${p2.keys}/${CONFIG.keyGoal}<br>Luck: ${currentLuck}%<br>FX: ${this.getEffectsLabel(p2)}` +
+          (p2.hasGun ? `<br>Gun: ${Math.ceil(p2.gunTimer / 1000)}s` : '') +
+          (p2.dead ? `<br>Respawn: ${Math.ceil(p2.deadTimer / 1000)}s` : '') +
+          (p2.openingDoor ? `<br>Opening...` : '');
+
+        document.getElementById('global-keys').innerText = `Keys: ${globalState.totalKeysFound}/${CONFIG.keyGoal}`;
+        document.getElementById('global-powerups').innerText = `Power-ups: ${this.powerUps.countActive(true)} live`;
+
+        if (this.timeLeft === Infinity) {
+          document.getElementById('global-timer').innerText = '∞';
+        } else {
+          const min = Math.max(0, Math.floor(this.timeLeft / 60000));
+          const sec = Math.max(0, Math.floor((this.timeLeft % 60000) / 1000));
+          document.getElementById('global-timer').innerText = `${min}:${sec < 10 ? '0' : ''}${sec}`;
+        }
+      }
+
+      endGame(reason, winnerId = null) {
+        const p1c = this.p1.stateData.coins;
+        const p2c = this.p2.stateData.coins;
+        let resultText = '';
+
+        if (reason === 'door') resultText = `Player ${winnerId} escaped through the door!`;
+        else if (p1c > p2c) resultText = 'Player 1 wins by coins!';
+        else if (p2c > p1c) resultText = 'Player 2 wins by coins!';
+        else resultText = "It's a draw!";
+
+        this.scene.start('WinScene', { resultText, p1Coins: p1c, p2Coins: p2c });
+      }
+
+      update(time, delta) {
+        if (this.inMiniGame) return;
+
+        this.updatePlayer(this.p1, this.keysP1, delta);
+        this.updatePlayer(this.p2, this.keysP2, delta);
+        this.updateUI();
+
+        if (this.timeLeft !== Infinity) {
+          this.timeLeft -= delta;
+          if (this.timeLeft <= 0) this.endGame('time');
+        }
+
+        this.bullets.children.each(bullet => {
+          if (!bullet.active) return;
+          const maxLife = (CONFIG.bulletRange / CONFIG.bulletSpeed) * 1000;
+          if (time - bullet.spawnTime > maxLife) {
+            if (bullet.trail) {
+              bullet.trail.stop();
+              this.time.delayedCall(250, () => bullet.trail.destroy());
+            }
+            bullet.destroy();
+          }
+        });
+      }
+    }
+
+    class WinScene extends Phaser.Scene {
+      constructor() { super('WinScene'); }
+
+      create(data) {
+        this.cameras.main.setBackgroundColor('#0e1620');
+
+        this.add.text(400, 190, data.resultText, {
+          fontFamily: 'Cabinet Grotesk', fontSize: '38px', color: '#ffffff', align: 'center'
+        }).setOrigin(0.5);
+
+        this.add.text(400, 265, `Player 1 Coins: ${data.p1Coins}`, {
+          fontFamily: 'Satoshi', fontSize: '24px', color: '#38bdf8'
+        }).setOrigin(0.5);
+
+        this.add.text(400, 305, `Player 2 Coins: ${data.p2Coins}`, {
+          fontFamily: 'Satoshi', fontSize: '24px', color: '#fb7185'
+        }).setOrigin(0.5);
+
+        const btn = this.add.text(400, 410, 'Main Menu', {
+          fontFamily: 'Satoshi',
+          fontSize: '26px',
+          color: '#34d399',
+          backgroundColor: '#182230',
+          padding: { x: 18, y: 10 }
+        }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+        btn.on('pointerdown', () => this.scene.start('MenuScene'));
+      }
+    }
+
+    new Phaser.Game({
+      type: Phaser.AUTO,
+      parent: 'game-container',
+      width: CONFIG.width,
+      height: CONFIG.height,
+      fps: { target: 120, forceSetTimeOut: true },
+      physics: { default: 'arcade', arcade: { debug: false } },
+      scene: [BootScene, MenuScene, GameScene, WinScene]
+    });
+  </script>
+</body>
+</html>
