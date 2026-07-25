@@ -2,7 +2,7 @@
 
 ## Supported Versions
 
-Supported pc browser
+Supported PC Browser Only
 
 ## Reporting a Vulnerability
 
